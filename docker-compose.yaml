@@ -1,0 +1,7 @@
+services:
+  emobility-autostart-cron:
+    build: .
+    container_name: emobility-autostart-cron
+    restart: always
+    env_file:
+      - .env
