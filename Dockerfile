@@ -9,15 +9,7 @@ COPY start_transaction.sh /cron-scripts/start_transaction.sh
 COPY stop_station.sh /cron-scripts/unlock_station.sh
 RUN chmod +x /cron-scripts/*.sh
 
-# ------------------------------------------------------------------------------
-# 3. Put your CRON schedules into /etc/crontabs/root
-#    (Kept your commented lines for 2 AM and 6 AM)
-# ------------------------------------------------------------------------------
-RUN echo '# RUN echo "0 2 * * * /cron-scripts/start_transaction.sh" >> /etc/crontabs/root \\ ' > /etc/crontabs/root \
- && echo '#  && echo "0 6 * * * /cron-scripts/start_transaction.sh" >> /etc/crontabs/root' >> /etc/crontabs/root \
- && echo '' >> /etc/crontabs/root \
- && echo '*/2 * * * * /cron-scripts/start_transaction.sh >> /proc/1/fd/1 2>&1' >> /etc/crontabs/root \
- && echo '1-59/2 * * * * /cron-scripts/unlock_station.sh >> /proc/1/fd/1 2>&1' >> /etc/crontabs/root
+RUN echo '0 * * * * /cron-scripts/start_transaction.sh >> /proc/1/fd/1 2>&1' > /etc/crontabs/root
 
 # ------------------------------------------------------------------------------
 # 4. Create an entrypoint script that:
