@@ -1,9 +1,10 @@
 #!/bin/sh
 
 echo "START TRANSACTION"
-# Construction de l'URL pour récupérer le statut de la station de charge.
+
+# Construire l'URL pour récupérer le statut de la station de charge.
 STATUS_URL="https://${API_URL}/v1/api/charging-stations/${CHARGER_ID}"
-echo "Fetching charging station status from: $STATUS_URL"
+echo "Récupération du statut de la borne: $STATUS_URL"
 
 # Récupérer le statut de la station de charge.
 response=$(curl -s "$STATUS_URL" \
@@ -11,15 +12,25 @@ response=$(curl -s "$STATUS_URL" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json")
 
-# Extraire le statut du premier connecteur.
+# Extraire le statut du connecteur et l'ID de transaction en cours.
 status=$(echo "$response" | jq -r '.connectors[0].status')
-echo "Connector status: $status"
+transactionId=$(echo "$response" | jq -r '.connectors[0].currentTransactionID')
 
+echo "Statut du connecteur: $status"
+echo "ID de transaction actuelle: $transactionId"
+
+# Si une transaction est déjà en cours (transactionId > 0), ne lance pas de nouvelle transaction.
+if echo "$transactionId" | grep -qE '^[0-9]+$' && [ "$transactionId" -gt 0 ]; then
+  echo "Une transaction (ID: $transactionId) est déjà en cours. Nouvelle transaction non lancée."
+  exit 0
+fi
+
+# Si le statut est "Preparing", lancer la transaction.
 if [ "$status" = "Preparing" ]; then
-  echo "Status is 'Preparing'. Initiating start transaction..."
+  echo "Le statut est 'Preparing'. Démarrage de la transaction..."
 
   START_URL="https://${API_URL}/v1/api/transactions/start"
-  # Exécuter la commande start transaction et capturer la réponse.
+
   start_response=$(curl -s "$START_URL" \
     -X PUT \
     -H "Authorization: Bearer $TOKEN" \
@@ -36,14 +47,13 @@ if [ "$status" = "Preparing" ]; then
 EOF
 )")
 
-  echo "Start transaction response: $start_response"
+  echo "Réponse du démarrage de la transaction: $start_response"
 
-  # Vérifier que la réponse contient le statut "Accepted"
   transaction_status=$(echo "$start_response" | jq -r '.status')
 
-  if [ "$transaction_status" = "Accepted" ]; then
-    echo "Transaction accepted."
-    if [ "$(echo "$SEND_NOTIF" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+  # Envoi de notification uniquement pour le retour de la commande start transaction.
+  if [ "$(echo "$SEND_NOTIF" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    if [ "$transaction_status" = "Accepted" ]; then
       pushover_payload=$(cat <<EOF
 {
   "token": "$PUSHOVER_TOKEN",
@@ -53,15 +63,7 @@ EOF
 }
 EOF
 )
-      notification_response=$(curl -s "http://api.pushover.net/1/messages.json" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        --data "$pushover_payload")
-      echo "Notification response: $notification_response"
-    fi
-  else
-    echo "Transaction not accepted. Received status: $transaction_status"
-    if [ "$(echo "$SEND_NOTIF" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+    else
       pushover_payload=$(cat <<EOF
 {
   "token": "$PUSHOVER_TOKEN",
@@ -71,13 +73,14 @@ EOF
 }
 EOF
 )
-      notification_response=$(curl -s "http://api.pushover.net/1/messages.json" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        --data "$pushover_payload")
-      echo "Notification response: $notification_response"
     fi
+    notification_response=$(curl -s "http://api.pushover.net/1/messages.json" \
+      -X POST \
+      -H "Content-Type: application/json" \
+      --data "$pushover_payload")
+    echo "Notification response: $notification_response"
   fi
+
 else
-  echo "Status is not 'Preparing' (status is '$status'). No transaction initiated."
+  echo "Le statut n'est pas 'Preparing' (statut: '$status'). Aucune transaction lancée."
 fi
