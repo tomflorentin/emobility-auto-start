@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "START TRANSACTION"
+echo "START TRANSACTION SCRIPT"
 
 # Construire l'URL pour récupérer le statut de la station de charge.
 STATUS_URL="https://${API_URL}/v1/api/charging-stations/${CHARGER_ID}"

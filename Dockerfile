@@ -6,7 +6,7 @@ RUN apk --no-cache add curl bash cronie jq
 # 2. Copy your scripts
 RUN mkdir /cron-scripts
 COPY start_transaction.sh /cron-scripts/start_transaction.sh
-COPY stop_station.sh /cron-scripts/unlock_station.sh
+#COPY stop_station.sh /cron-scripts/unlock_station.sh
 RUN chmod +x /cron-scripts/*.sh
 
 RUN echo '0 * * * * /cron-scripts/start_transaction.sh >> /proc/1/fd/1 2>&1' > /etc/crontabs/root
